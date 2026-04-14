@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import { cpSync } from 'fs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -52,6 +53,10 @@ async function main() {
       esbuild.build(webviewConfig),
       esbuild.build(daemonConfig),
     ]);
+    // Copy static assets that the webview needs
+    cpSync('node_modules/@vscode/codicons/dist/codicon.css', 'out/codicon.css');
+    cpSync('node_modules/@vscode/codicons/dist/codicon.ttf', 'out/codicon.ttf');
+    cpSync('node_modules/@xterm/xterm/css/xterm.css', 'out/xterm.css');
     console.log('Build complete.');
   }
 }

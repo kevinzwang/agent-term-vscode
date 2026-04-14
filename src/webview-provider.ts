@@ -34,8 +34,6 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.joinPath(this.extensionUri, 'out'),
-        vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@xterm', 'xterm', 'css'),
-        vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist'),
       ],
     };
 
@@ -119,12 +117,23 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
       case 'tab-context-click':
         this.contextClickedUid = msg.uid;
         break;
+
+      case 'open-link':
+        vscode.env.openExternal(vscode.Uri.parse(msg.uri));
+        break;
     }
   }
 
   private sendCreateSession(uid: string): void {
     const config = vscode.workspace.getConfiguration('agentTerminal');
     const startupCommand = config.get<string>('startupCommand', '');
+
+    // Find CLAUDE_CODE_SSE_PORT from lock files. The Claude Code extension
+    // sets this via VSCode's EnvironmentVariableCollection (not process.env).
+    const env: Record<string, string> = {};
+    const ssePort = this.findClaudeSsePort();
+    if (ssePort) env.CLAUDE_CODE_SSE_PORT = ssePort;
+
     this.daemon.send({
       type: 'create',
       uid,
@@ -132,10 +141,35 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
       rows: 24,
       cwd: this.workspacePath,
       command: startupCommand || undefined,
+      env: Object.keys(env).length > 0 ? env : undefined,
     });
   }
 
+  private findClaudeSsePort(): string | undefined {
+    try {
+      const fs = require('fs');
+      const lockDir = require('path').join(process.env.HOME || '', '.claude', 'ide');
+      if (!fs.existsSync(lockDir)) return undefined;
+
+      for (const file of fs.readdirSync(lockDir) as string[]) {
+        if (!file.endsWith('.lock')) continue;
+        try {
+          const data = JSON.parse(fs.readFileSync(require('path').join(lockDir, file), 'utf-8'));
+          if (data.workspaceFolders?.includes(this.workspacePath)) {
+            return file.replace('.lock', '');
+          }
+        } catch {}
+      }
+    } catch {}
+    return undefined;
+  }
+
   async createNewTab(): Promise<void> {
+    // Reconnect to daemon if it was shut down
+    if (!this.daemon.connected) {
+      await this.daemon.connect();
+    }
+
     const uid = generateUid();
     const tabs = this.tabState.getTabs();
 
@@ -154,12 +188,17 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
     this.activeSessions.delete(uid);
     await this.tabState.removeTab(uid);
 
+    const tabs = this.tabState.getTabs();
     if (this.activeUid === uid) {
-      const tabs = this.tabState.getTabs();
       this.activeUid = tabs.length > 0 ? tabs[0].uid : null;
     }
 
     this.sendTabsUpdate();
+
+    // Shut down daemon when all tabs are gone
+    if (tabs.length === 0 && this.activeSessions.size === 0) {
+      this.daemon.send({ type: 'shutdown' });
+    }
   }
 
   async renameTab(): Promise<void> {
@@ -231,9 +270,11 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
   }
 
   private sendTabsUpdate(): void {
+    const tabs = this.tabState.getTabs();
+    vscode.commands.executeCommand('setContext', 'agentTerminal.singleTab', tabs.length <= 1);
     this.postMessage({
       type: 'tabs-updated',
-      tabs: this.tabState.getTabs(),
+      tabs,
       activeUid: this.activeUid,
     });
   }
@@ -287,13 +328,13 @@ export class AgentTerminalViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this.extensionUri, 'out', 'webview.js')
     );
     const xtermCssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@xterm', 'xterm', 'css', 'xterm.css')
+      vscode.Uri.joinPath(this.extensionUri, 'out', 'xterm.css')
     );
     const stylesheetUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'out', 'webview.css')
     );
     const codiconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
+      vscode.Uri.joinPath(this.extensionUri, 'out', 'codicon.css')
     );
     const nonce = getNonce();
 

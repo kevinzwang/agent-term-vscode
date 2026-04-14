@@ -89,17 +89,28 @@ function createTerminal(uid: string): void {
 
   const cssTheme = getThemeFromCssVars();
 
+  const openLink = (event: MouseEvent, uri: string) => {
+    if (event.metaKey || event.ctrlKey) {
+      post({ type: 'open-link', uri });
+    }
+  };
+
   const term = new Terminal({
     allowProposedApi: true,
     scrollback: currentScrollback,
     fontSize: currentFontSize,
     fontFamily: currentFontFamily,
     theme: cssTheme,
+    // Handle OSC 8 hyperlink clicks
+    linkHandler: {
+      activate: openLink,
+    },
   });
 
   const fit = new FitAddon();
   term.loadAddon(fit);
-  term.loadAddon(new WebLinksAddon());
+  // Handle plain-text URL clicks
+  term.loadAddon(new WebLinksAddon(openLink));
   term.open(container);
 
   fit.fit();

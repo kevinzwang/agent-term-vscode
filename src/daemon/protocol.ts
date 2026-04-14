@@ -5,13 +5,14 @@
 
 // Extension → Daemon requests
 export type DaemonRequest =
-  | { type: 'create'; uid: string; cols: number; rows: number; cwd: string; command?: string }
+  | { type: 'create'; uid: string; cols: number; rows: number; cwd: string; command?: string; env?: Record<string, string> }
   | { type: 'input'; uid: string; data: string }
   | { type: 'resize'; uid: string; cols: number; rows: number }
   | { type: 'kill'; uid: string }
   | { type: 'list' }
   | { type: 'replay'; uid: string }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  | { type: 'shutdown' };
 
 // Daemon → Extension responses/events
 export type DaemonEvent =

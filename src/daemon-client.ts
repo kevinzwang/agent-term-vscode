@@ -2,7 +2,7 @@ import * as net from 'net';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { spawn as cpSpawn, execSync } from 'child_process';
 import type { DaemonRequest, DaemonEvent } from './daemon/protocol';
 
@@ -94,23 +94,21 @@ export class DaemonClient {
 
   private async startDaemon(): Promise<void> {
     const nodePath = this.findNodeBinary();
+    const logPath = this.socketPath.replace('.sock', '.log');
 
-    // Use 'setsid' to create a new session, fully detaching from VSCode's
-    // process tree. Without this, VSCode kills all descendants on reload.
-    // On macOS, /usr/bin/setsid doesn't exist, but we can use 'nohup' + shell.
-    const isLinux = process.platform === 'linux';
-    const child = isLinux
-      ? cpSpawn('setsid', [nodePath, this.daemonScriptPath, this.socketPath], {
-          detached: true,
-          stdio: 'ignore',
-        })
-      : cpSpawn('/bin/sh', [
-          '-c',
-          `exec nohup "${nodePath}" "${this.daemonScriptPath}" "${this.socketPath}" >/dev/null 2>&1 &`,
-        ], {
-          detached: true,
-          stdio: 'ignore',
-        });
+    // Ensure socket directory exists
+    mkdirSync(path.dirname(this.socketPath), { recursive: true });
+
+    // Use nohup + shell to fully detach from VSCode's process tree.
+    // Without this, VSCode kills all descendants on reload.
+    // Redirect stderr to a log file so we can diagnose startup failures.
+    const child = cpSpawn('/bin/sh', [
+      '-c',
+      `exec nohup "${nodePath}" "${this.daemonScriptPath}" "${this.socketPath}" >/dev/null 2>"${logPath}" &`,
+    ], {
+      detached: true,
+      stdio: 'ignore',
+    });
     child.unref();
 
     // Wait for socket file to appear
@@ -123,14 +121,29 @@ export class DaemonClient {
       }
       await new Promise((r) => setTimeout(r, 50));
     }
-    throw new Error('Daemon failed to start');
+
+    // Read log file for error details
+    let detail = '';
+    try {
+      const { readFileSync } = require('fs');
+      detail = readFileSync(logPath, 'utf-8').trim().slice(-500);
+    } catch {}
+    throw new Error(`Daemon failed to start${detail ? ': ' + detail : ''}`);
   }
 
   private findNodeBinary(): string {
-    try {
-      const p = execSync('which node', { encoding: 'utf-8', timeout: 2000 }).trim();
-      if (p) return p;
-    } catch {}
+    // Try system node first (not Electron)
+    for (const cmd of ['which node', 'command -v node']) {
+      try {
+        const p = execSync(cmd, { encoding: 'utf-8', timeout: 2000, shell: '/bin/sh' }).trim();
+        if (p && existsSync(p)) return p;
+      } catch {}
+    }
+    // Check common locations
+    for (const p of ['/usr/local/bin/node', '/usr/bin/node']) {
+      if (existsSync(p)) return p;
+    }
+    // Fallback to current runtime (may be Electron, which might not work)
     return process.execPath;
   }
 

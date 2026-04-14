@@ -24,7 +24,8 @@ export type WebviewToExtensionMessage =
   | { type: 'tab-restart'; uid: string }
   | { type: 'ready' }
   | { type: 'resize'; uid: string; cols: number; rows: number }
-  | { type: 'tab-context-click'; uid: string };
+  | { type: 'tab-context-click'; uid: string }
+  | { type: 'open-link'; uri: string };
 
 export interface TerminalTheme {
   fontFamily: string;

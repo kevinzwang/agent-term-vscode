@@ -88,16 +88,49 @@ function startProcessNamePolling(session: Session): NodeJS.Timeout {
 // Session management
 // ---------------------------------------------------------------------------
 
+/**
+ * Build a clean env for PTY sessions. Strips internal VSCode extension host
+ * vars that aren't meant for terminals (e.g., VSCODE_CRASH_REPORTER_PROCESS_TYPE)
+ * and adds the vars that the built-in terminal normally has.
+ */
+function cleanEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  const stripPrefixes = [
+    'VSCODE_CRASH_REPORTER_',
+    'VSCODE_ESM_',
+    'VSCODE_HANDLES_',
+    'VSCODE_IPC_HOOK',
+    'VSCODE_L10N_',
+    'VSCODE_NLS_',
+    'VSCODE_PID',
+    'VSCODE_CWD',
+    'VSCODE_CODE_CACHE_PATH',
+  ];
+
+  for (const [key, val] of Object.entries(process.env)) {
+    if (val === undefined) continue;
+    if (stripPrefixes.some((p) => key.startsWith(p))) continue;
+    env[key] = val;
+  }
+
+  // Add vars that VSCode's built-in terminal sets
+  env.TERM_PROGRAM = 'vscode';
+  env.TERM_PROGRAM_VERSION = '1.115.0';
+  env.COLORTERM = 'truecolor';
+  env.VSCODE_INJECTION = '1';
+
+  return env;
+}
+
 function createSession(
   uid: string,
   cols: number,
   rows: number,
   cwd: string,
   command?: string,
+  extraEnv?: Record<string, string>,
 ): Session {
   const shell = process.env.SHELL || '/bin/bash';
-  // If a command is specified, run it via a login shell so PATH is set up correctly.
-  // This ensures commands like 'claude' are found even if they're in /opt/homebrew/bin etc.
   const spawnCmd = shell;
   const spawnArgs = command ? ['-l', '-c', command] : ['-l'];
 
@@ -106,7 +139,7 @@ function createSession(
     cols,
     rows,
     cwd,
-    env: process.env as { [key: string]: string },
+    env: { ...cleanEnv(), ...extraEnv },
   });
 
   const session: Session = {
@@ -165,7 +198,7 @@ function handleRequest(socket: net.Socket, req: DaemonRequest): void {
         return;
       }
       try {
-        createSession(req.uid, req.cols, req.rows, req.cwd, req.command);
+        createSession(req.uid, req.cols, req.rows, req.cwd, req.command, req.env);
         sendToClient(socket, { type: 'created', uid: req.uid });
       } catch (err) {
         sendToClient(socket, {
@@ -222,6 +255,14 @@ function handleRequest(socket: net.Socket, req: DaemonRequest): void {
         return;
       }
       sendToClient(socket, { type: 'replay-result', uid: req.uid, data: session.ringBuffer });
+      break;
+    }
+
+    case 'shutdown': {
+      for (const uid of sessions.keys()) {
+        destroySession(uid);
+      }
+      process.exit(0);
       break;
     }
 
