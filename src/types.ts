@@ -2,16 +2,17 @@ export interface TabInfo {
   uid: string;
   name: string;
   order: number;
+  userRenamed?: boolean;
 }
-
-export type SessionStatus = 'alive' | 'dead';
 
 // Extension host → Webview messages
 export type ExtensionToWebviewMessage =
   | { type: 'terminal-data'; uid: string; data: string }
   | { type: 'tabs-updated'; tabs: TabInfo[]; activeUid: string | null }
   | { type: 'session-ended'; uid: string }
-  | { type: 'theme-changed'; theme: TerminalTheme };
+  | { type: 'theme-changed'; theme: TerminalTheme }
+  | { type: 'config-updated'; scrollback: number }
+  | { type: 'start-rename'; uid: string };
 
 // Webview → Extension host messages
 export type WebviewToExtensionMessage =
@@ -22,29 +23,10 @@ export type WebviewToExtensionMessage =
   | { type: 'tab-killed'; uid: string }
   | { type: 'tab-restart'; uid: string }
   | { type: 'ready' }
-  | { type: 'resize'; uid: string; cols: number; rows: number };
+  | { type: 'resize'; uid: string; cols: number; rows: number }
+  | { type: 'tab-context-click'; uid: string };
 
 export interface TerminalTheme {
-  background: string;
-  foreground: string;
-  cursor: string;
-  selectionBackground: string;
-  black: string;
-  red: string;
-  green: string;
-  yellow: string;
-  blue: string;
-  magenta: string;
-  cyan: string;
-  white: string;
-  brightBlack: string;
-  brightRed: string;
-  brightGreen: string;
-  brightYellow: string;
-  brightBlue: string;
-  brightMagenta: string;
-  brightCyan: string;
-  brightWhite: string;
   fontFamily: string;
   fontSize: number;
 }
