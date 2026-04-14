@@ -1,0 +1,221 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--vscode-sideBar-background, var(--vscode-panel-background, var(--vscode-editor-background))) !important;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+.container {
+  display: flex;
+  height: 100%;
+}
+
+/* Tab sidebar — matches VSCode terminal tab list */
+.tab-sidebar {
+  width: 120px;
+  min-width: 46px;
+  max-width: 500px;
+  border-right: 1px solid var(--vscode-terminal-border, var(--vscode-panel-border));
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tab-sidebar.hidden {
+  display: none;
+}
+
+.tab-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 22px;
+}
+
+/* Resize handle */
+.tab-sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.tab-sidebar-resize:hover,
+.tab-sidebar-resize.dragging {
+  background: var(--vscode-focusBorder);
+  opacity: 0.5;
+}
+
+/* Tab item — 22px height matching VSCode terminal tabs */
+.tab-item {
+  height: 22px;
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+  position: relative;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+
+.tab-item:hover {
+  background: var(--vscode-list-hoverBackground);
+  color: var(--vscode-list-hoverForeground, var(--vscode-foreground));
+}
+
+/* Unfocused active tab */
+.tab-item.active {
+  background: var(--vscode-list-inactiveSelectionBackground, var(--vscode-list-activeSelectionBackground));
+  color: var(--vscode-list-inactiveSelectionForeground, var(--vscode-foreground));
+}
+
+/* Focused active tab — matches VSCode list focus colors */
+.tab-item.active:focus {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* Any focused tab (non-active) */
+.tab-item:focus:not(.active) {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* Drag and drop reordering */
+.tab-item.drag-over-top {
+  border-top: 2px solid var(--vscode-focusBorder);
+}
+
+.tab-item.drag-over-bottom {
+  border-bottom: 2px solid var(--vscode-focusBorder);
+}
+
+.tab-item.dragging {
+  opacity: 0.4;
+}
+
+/* 1px active border on left — matches VSCode terminal tab indicator */
+.tab-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--agentterm-tab-active-border);
+}
+
+/* Terminal icon */
+.tab-item .tab-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.tab-item .tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 22px;
+}
+
+/* Kill button — hidden by default, shown on hover/active */
+.tab-item .tab-kill {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--vscode-icon-foreground);
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 2px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tab-item:hover .tab-kill {
+  display: flex;
+}
+
+.tab-item .tab-kill:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+/* Inline rename input */
+.tab-item .tab-rename-input {
+  flex: 1;
+  height: 18px;
+  border: 1px solid var(--vscode-focusBorder);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  padding: 0 4px;
+  outline: none;
+  min-width: 0;
+}
+
+
+/* Terminal area */
+.terminal-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-container {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+.terminal-container.active {
+  display: block;
+}
+
+/* Session ended overlay */
+.session-ended {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-descriptionForeground);
+}
+
+.session-ended button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.session-ended button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
